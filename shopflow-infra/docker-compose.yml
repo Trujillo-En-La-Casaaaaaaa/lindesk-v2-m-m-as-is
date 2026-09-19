@@ -1,0 +1,132 @@
+# shopflow-infra - Compose topology for the migrated ShopFlow system.
+#
+#   browser ──▶ web (nginx, published origin http://127.0.0.1:3000)
+#                 └─ /api/* ──▶ api:3001 ──▶ db:5432 (PostgreSQL 16)
+#                                 └─────────▶ notification-provider:4010 ──▶ notify_data (JSONL)
+#
+# Startup:  docker compose up -d --build
+# The build contexts default to sibling checkouts of the two application repositories
+# (../shopflow-api, ../shopflow-web); override them with API_CONTEXT / WEB_CONTEXT.
+#
+# The `migrate` one-shot service applies migrations/001_init.sql before `api` starts, so the schema
+# and the seed are owned here and never by the application. Every service name, port and volume below
+# is a cross-repository contract - keep them stable.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shopflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopflow}
+      POSTGRES_DB: ${POSTGRES_DB:-shopflow}
+    ports:
+      - "5433:5432"
+    volumes:
+      - shopflow_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # One-shot schema/seed job: `psql -v ON_ERROR_STOP=1 -f /migrations/001_init.sql`.
+  # Idempotent, so running it again leaves the data untouched. Exits 0 before `api` starts.
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-shopflow}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-shopflow}
+      PGDATABASE: ${POSTGRES_DB:-shopflow}
+    volumes:
+      - ./migrations:/migrations:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/001_init.sql"]
+    restart: "no"
+
+  # Deterministic, fully offline notification-provider emulator (built from this repository).
+  # It alone writes the append-only JSONL notification store on the `notify_data` volume.
+  notification-provider:
+    build:
+      context: ./notification-provider
+    environment:
+      PORT: "4010"
+      NOTIFICATION_LOG_PATH: ${NOTIFICATION_LOG_PATH:-/data/notifications.jsonl}
+      NOTIFICATION_IDEMPOTENCY_PATH: ${NOTIFICATION_IDEMPOTENCY_PATH:-/data/notifications.idempotency.jsonl}
+    ports:
+      - "4010:4010"
+    volumes:
+      - notify_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4010/health >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # shopflow-api: the only runtime writer of products/orders/notification_outbox.
+  api:
+    build:
+      context: ${API_CONTEXT:-../shopflow-api}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://shopflow:shopflow@db:5432/shopflow}
+      PORT: "3001"
+      NOTIFICATION_PROVIDER_URL: ${NOTIFICATION_PROVIDER_URL:-http://notification-provider:4010}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      notification-provider:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+
+  # shopflow-web: the only browser-facing container; serves the SPA and proxies /api/* to api:3001.
+  web:
+    build:
+      context: ${WEB_CONTEXT:-../shopflow-web}
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # Black-box acceptance suite (a plain node image, driven by run-acceptance.sh / run-acceptance.ps1).
+  # Kept behind the `test` profile so `docker compose up -d --build` only brings up the stack.
+  # Run it with:  docker compose run --rm acceptance [node --test <phase files>]
+  acceptance:
+    build:
+      context: ./acceptance
+    profiles: ["test"]
+    environment:
+      BASE_URL: http://web
+    depends_on:
+      db:
+        condition: service_healthy
+      notification-provider:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  shopflow_pg:
+  notify_data:

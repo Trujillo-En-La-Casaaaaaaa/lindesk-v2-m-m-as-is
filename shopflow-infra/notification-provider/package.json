@@ -1,0 +1,21 @@
+{
+  "name": "shopflow-notification-provider",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deterministic, fully offline notification-provider emulator: HTTP API, append-only JSONL persistence, idempotent submit",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/server.js",
+    "test": "npm run build && node --test dist/test/provider.test.js",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
+  }
+}

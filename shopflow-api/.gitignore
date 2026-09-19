@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.local
+
+# LinDesk task input (the handoff is read, never shipped)
+.handoff/

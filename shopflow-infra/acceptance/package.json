@@ -1,0 +1,17 @@
+{
+  "name": "shopflow-acceptance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Black-box acceptance suite for the composed ShopFlow stack (node:test + fetch, no browser automation, no dependencies)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/behavior-preservation.test.mjs tests/concurrency.test.mjs",
+    "test:behavior": "node --test --test-concurrency=1 tests/behavior-preservation.test.mjs",
+    "test:concurrency": "node --test --test-concurrency=1 tests/concurrency.test.mjs",
+    "test:durability": "node --test --test-concurrency=1 tests/restart-durability.test.mjs"
+  },
+  "dependencies": {}
+}

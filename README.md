@@ -1,10 +1,19 @@
-# ShopFlow AS-IS — migración · complejidad media (M-M)
+# ShopFlow — M-M (AS-IS → resultado)
 
-Este repositorio es el **sistema de partida** (fixture congelado `F1-low`) que se le entregó a LinDesk en el escenario **M-M**. **No es un resultado de LinDesk.**
+Este repositorio muestra la **migración** como historial de Git (dos commits):
 
-Compare con el resultado: https://github.com/Trujillo-En-La-Casaaaaaaa/lindesk-v2-m-m
+1. Tag [`as-is`](https://github.com/Trujillo-En-La-Casaaaaaaa/lindesk-v2-m-m-as-is/tree/as-is) — fixture congelado, **antes** de LinDesk.
+2. Rama `main` (este árbol) — resultado de LinDesk, corrida `20260917-084237`.
 
-Identificador de la corrida del resultado: `20260917-084237` (solo trazabilidad).
+**Diff:** https://github.com/Trujillo-En-La-Casaaaaaaa/lindesk-v2-m-m-as-is/compare/as-is...main
+
+El encargo congelado está en [`TASK.md`](./TASK.md). Este paquete es solo código fuente.
+
+---
+
+# ShopFlow — migración · complejidad media (M-M)
+
+Paquete de entrevista (artefacto congelado). Contiene el árbol de ShopFlow del escenario **M-M**. **No es LinDesk**; es el software de dominio que se evalúa.
 
 ## Qué es ShopFlow
 
@@ -33,25 +42,42 @@ Reglas de cancelación cuando sí aplica:
 - reintentos repetidos no deben restaurar stock dos veces.
 
 
-## Arquitectura de este baseline
+## Este escenario (M-M)
 
-Un único `shopflow-app` MVC (el mismo estilo de complejidad baja). Es el origen que debía migrarse a tres repositorios (web + API hexagonal + infra).
+| | |
+|---|---|
+| Código | `M-M` |
+| Ciclo de vida | Migración (transformación arquitectónica) |
+| Complejidad arquitectónica | Media — de MVC a tres repositorios hexagonales |
+| Identificador de corrida | `20260917-084237` (solo trazabilidad) |
 
-En este AS-IS el comportamiento ya cubre catálogo, inventario, pedidos, envío y notificación de confirmación. **No incluye cancelación de pedido por el cliente.**
+Baseline **antes** de LinDesk (AS-IS): https://github.com/Trujillo-En-La-Casaaaaaaa/lindesk-v2-m-m-as-is
 
-### Encargo que se aplicó **sobre** este baseline
+Inspeccione primero el AS-IS y después este resultado.
 
-Migrar a tres repositorios / tres capas **sin** añadir cancelación y preservando el comportamiento observable.
 
-El texto **exacto** está en [`TASK.md`](./TASK.md) (inglés, congelado). Léalo aquí y luego abra el repositorio de resultado.
+### Arquitectura pedida
+
+Partir del MVC de un repositorio y crear **exactamente** `shopflow-web` (React; sin acceso directo a BD), `shopflow-api` (hexagonal) y `shopflow-infra` (Compose, PostgreSQL, emulador de notificaciones).
+
+### Encargo (resumen)
+
+Migrar conservando catálogo, stock, pedidos, envío y notificación. **No añadir cancelación.** No crear repositorios distintos de los tres pedidos. Pruebas de preservación de comportamiento. El objetivo es migración, no features nuevas.
+
+El texto **exacto** del encargo está en [`TASK.md`](./TASK.md). Úselo como contrato.
 
 ### Carpetas de este árbol
 
-- `shopflow-app/`
+- `shopflow-web/` — frontend objetivo.
+- `shopflow-api/` — backend hexagonal objetivo.
+- `shopflow-infra/` — operación local.
+- `shopflow-app/` — carpeta presente en el árbol publicado (el origen era un único app MVC; el encargo pide las tres capas anteriores).
 
 ## Cómo usarlo en la entrevista
 
-1. Inspeccione este baseline primero (cómo está hecho ShopFlow hoy).
-2. Lea `TASK.md`.
-3. Pase al repositorio de resultado y compare. En evolución debe preservarse la arquitectura; en migración debe cambiar de forma controlada y **sin** añadir cancelación.
-4. Este paquete es **solo código fuente**. Etapa B no está incluida.
+1. Lea primero `TASK.md` (el encargo congelado; está en inglés porque así se le dio al sistema).
+2. Recorra los directorios de producto listados arriba. Este paquete es **solo código fuente** (sin `node_modules`, builds ni informes de análisis).
+3. Juzgue el código frente al encargo: requisitos funcionales **y** restricciones arquitectónicas. Un sistema que “parece funcionar” pero ignora los límites del escenario no cumple el contrato.
+4. No trate este README como veredicto de calidad: es contexto. La puntuación es del experto sobre el código.
+5. Etapa B (`AGENTS.md`, grafo C4) **no** está en este repositorio. LinDesk en ejecución se muestra por RDP, aparte de este árbol de GitHub.
+

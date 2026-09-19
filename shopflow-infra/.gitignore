@@ -1,0 +1,5 @@
+# Build artifacts and local state (none of these belong in the repository).
+node_modules/
+dist/
+.env
+*.log
